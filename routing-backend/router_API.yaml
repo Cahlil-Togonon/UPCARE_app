@@ -1,0 +1,118 @@
+openapi: 3.0.0
+info:
+  title: Routing API
+  description: This API provides routing information, calculating the greenest route with various vehicle types.
+  version: 1.0.0
+servers:
+  - url: http://localhost:9098
+    description: Local Dev Server
+paths:
+  /routing:
+    get:
+      summary: Get routing information
+      description: Returns routing details including distance, time, instructions, and route points.
+      parameters:
+        - name: point
+          in: query
+          description: Pair of [latitude,longitude] values (At least 2 points must be specified).
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+              format: uri
+          explode: true
+        - name: Vehicle
+          in: query
+          description: Type of vehicle used for routing.
+          required: true
+          schema:
+            type: string
+            enum:
+              - foot
+              - bike
+              - car
+              - motorcycle
+        - name: RouteType
+          in: query
+          description: Type of route to be calculated.
+          required: true
+          schema:
+            type: string
+            enum:
+              - greenest
+              - fastest
+              - shortest
+              - balanced
+              - all
+        - name: mediaType
+          in: query
+          description: The format in which the response should be returned.
+          required: true
+          schema:
+            type: string
+            enum:
+              - json
+      responses:
+        '200':
+          description: Successful routing information retrieval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    distance:
+                      type: number
+                      format: float
+                      description: The total distance of the route in meters.
+                    weight:
+                      type: number
+                      format: float
+                      description: Total weight of the route.
+                    time:
+                      type: number
+                      format: float
+                      description: The estimated travel time for the route in seconds.
+                    points:
+                      type: string
+                      description: A string representing the encoded polyline points of the route.
+                    instructions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          distance:
+                            type: number
+                            format: float
+                            description: The distance for the specific instruction in meters.
+                          sign:
+                            type: integer
+                            description: A code for the type of turn (e.g., left, right, continue).
+                          interval:
+                            type: array
+                            items:
+                              type: integer
+                            description: The range of indexes that the instruction affects.
+                          text:
+                            type: string
+                            description: A textual description of the instruction (e.g., "turn left").
+                          time:
+                            type: number
+                            format: float
+                            description: Time associated with the instruction in seconds.
+                          street_name:
+                            type: string
+                            description: The name of the street for the instruction.
+                    bounds:
+                      type: array
+                      items:
+                        type: number
+                        format: float
+                      description: Bounding coordinates of the route in [lat_min, lon_min, lat_max, lon_max] format.
+        '400':
+          description: Bad request. Invalid parameters or missing required parameters.
+        '500':
+          description: Internal server error.
+  

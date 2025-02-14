@@ -1,0 +1,86 @@
+name: upcare
+services:
+  python-backend:
+    container_name: data-backend
+    build:
+      context: ./coe199-capstone
+      dockerfile: Dockerfile
+    develop:
+      watch:
+        - action: sync
+          path: ./coe199-capstone
+          target: /coe199-capstone
+    volumes:
+      - ./shared-data/express-leaflet/public:/express-leaflet/public
+    networks:
+      - shared-network
+    environment:
+     - DATABASE_URL=postgresql://admin:++adminupcare2025!!@db:5432/manila_osm
+     - PROJ_DIR=/usr/bin/proj
+
+    depends_on:
+      - db
+
+  express-leaflet:
+    container_name: express-leaflet
+    build:
+      context: ./express-leaflet
+      dockerfile: Dockerfile
+    volumes:
+      - ./shared-data/express-leaflet/public:/express-leaflet/public
+    ports:
+      - "3000:3000"
+    networks:
+      - shared-network
+    depends_on:
+      - python-backend
+      - tileserv
+
+  # PostgreSQL with PostGIS service
+  db:
+    container_name: postgis
+    image: postgis/postgis:latest
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ++adminupcare2025!!
+      POSTGRES_DB: manila_osm
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./manila_osm.sql:/docker-entrypoint-initdb.d/manila_osm.sql
+      - ./osm_streets.sql:/docker-entrypoint-initdb.d/osm_streets.sql
+      - ./osm_ids.sql:/docker-entrypoint-initdb.d/osm_ids.sql
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - shared-network
+
+  tileserv:
+    image: pramsey/pg_tileserv:latest
+    container_name: tileserv
+    environment:
+      DATABASE_URL: "postgres://tileserv:guest@db:5432/manila_osm"
+    ports:
+      - "7800:7800"
+    depends_on:
+      - db
+    networks:
+      - shared-network
+
+  routing-backend:
+    build:
+      context: ./routing-backend
+      dockerfile: Dockerfile
+    container_name: routing-backend
+    ports:
+      - "9098:9098"
+    networks:
+      - shared-network
+
+volumes:
+  pgdata:
+  shared-data:
+    driver: local
+
+networks:
+  shared-network:
+    driver: bridge

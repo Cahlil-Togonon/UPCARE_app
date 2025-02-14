@@ -1,0 +1,6 @@
+[submodule "coe199-capstone"]
+	path = coe199-capstone
+	url = https://github.com/Cahlil-Togonon/coe199-capstone
+[submodule "express-leaflet"]
+	path = express-leaflet
+	url = https://github.com/Cahlil-Togonon/express-leaflet
