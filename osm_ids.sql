@@ -24,7 +24,7 @@ SET default_table_access_method = heap;
 -- Name: osm_ids; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.osm_ids (
+CREATE TABLE IF NOT EXISTS public.osm_ids (
     osm_id bigint NOT NULL
 );
 
