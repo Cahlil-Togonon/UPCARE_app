@@ -106666,8 +106666,8 @@ COPY public.osm_ids (osm_id) FROM stdin;
 -- Name: osm_ids osm_ids_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.osm_ids
-    ADD CONSTRAINT osm_ids_pkey PRIMARY KEY (osm_id);
+-- ALTER TABLE ONLY public.osm_ids
+--     ADD CONSTRAINT osm_ids_pkey PRIMARY KEY (osm_id);
 
 
 --
