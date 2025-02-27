@@ -34,14 +34,14 @@ COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types an
 -- Name: pgrouting; Type: EXTENSION; Schema: -; Owner: -
 --
 
-CREATE EXTENSION IF NOT EXISTS pgrouting WITH SCHEMA public;
+-- CREATE EXTENSION IF NOT EXISTS pgrouting WITH SCHEMA public;
 
 
---
--- Name: EXTENSION pgrouting; Type: COMMENT; Schema: -; Owner: -
---
+-- --
+-- -- Name: EXTENSION pgrouting; Type: COMMENT; Schema: -; Owner: -
+-- --
 
-COMMENT ON EXTENSION pgrouting IS 'pgRouting Extension';
+-- COMMENT ON EXTENSION pgrouting IS 'pgRouting Extension';
 
 
 --
