@@ -6,4 +6,4 @@ to do documentation
 
 ## OpenAPI specifications
 
-`./router_API.yaml` contains OpenAPI specifications for the GraphHopper routing API server
+`./router_API.yaml` contains OpenAPI specifications for the GraphHopper routing API server. Use Redocly or Swagger for development using this API.
