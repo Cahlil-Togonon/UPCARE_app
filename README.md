@@ -43,7 +43,7 @@ Follow the following steps:
     wget https://download.geofabrik.de/asia/philippines-latest.osm.pbf
     ```
 
-3. Go back to the `./UPCARE-app/` root directory uild the application using *docker-compose*:
+3. Go back to the `./UPCARE-app/` root directory and build the application using *docker-compose*:
 
     ```
     cd ~/UPCARE-app
@@ -59,7 +59,7 @@ The docker-compose will call the `Dockerfile` of each subfolder as well as other
 | data-backend        | N/A                                   | Python data processing backend to get UPCARE API sensor data, perform Kriging interpolation to street-level AQI, and save it into the PostGIS database. |
 | express-leaflet     | localhost:3000                        | Leaflet application to show air quality map and routing results.                              |
 | tileserv            | localhost:7800                        | Tile server for PostGIS database to serve street-level AQI data.                              |
-| postgis             | postgres://<user>:<password>@db:5432/manila_osm | PostGIS database server to store street-level interpolated AQI data.                          |
+| postgis             | postgres://`user`:`password`@db:5432/manila_osm | PostGIS database server to store street-level interpolated AQI data.                          |
 | routing-backend     | localhost:9098                        | GraphHopper router server. See `/routing-backend/router_API.yaml` for OpenAPI specifications.  |
 
 Note that the routing-backend may take some time to initialize the GraphHopper routing network. Check its logs and wait for it to finish.
