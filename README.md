@@ -38,17 +38,21 @@ Follow the following steps:
 
     ```
     cd ./UPCARE-app/routing-backend/maps/
-
+    ```
+    ```
     wget https://download.geofabrik.de/asia/philippines-latest.osm.pbf
     ```
 
-3. Build the application using docker-compose:
+3. Go back to the `./UPCARE-app/` root directory uild the application using *docker-compose*:
 
+    ```
+    cd ~/UPCARE-app
+    ```
     ```
     sudo docker-compose up -d -build
     ```
 
-This will call the `Dockerfile` of each subfolder as well as other services such as postGIS and pg_tileserv. The following containers and services should be built:
+The docker-compose will call the `Dockerfile` of each subfolder as well as other services such as postGIS and pg_tileserv. The following containers and services should be built:
 
 | container/service   | Port(s)                               | Purpose                                                                                       |
 |---------------------|---------------------------------------|-----------------------------------------------------------------------------------------------|
