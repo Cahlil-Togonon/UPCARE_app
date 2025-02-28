@@ -30,19 +30,25 @@ Follow the following steps:
 
 1. Clone this repository and its submodules using this command:
 
-    ```git clone --recurse-submodules https://github.com/Cahlil-Togonon/UPCARE_app.git```
+    ```
+    git clone --recurse-submodules https://github.com/Cahlil-Togonon/UPCARE_app.git
+    ```
 
 2. Before building the application, download the Philippines OSM .pbf data file in the `./UPCARE-app/routing-backend/maps/` folder.
 
-    ```cd ./UPCARE-app/routing-backend/maps/```
+    ```
+    cd ./UPCARE-app/routing-backend/maps/
 
-    ```wget https://download.geofabrik.de/asia/philippines-latest.osm.pbf```
+    wget https://download.geofabrik.de/asia/philippines-latest.osm.pbf
+    ```
 
 3. Build the application using docker-compose:
 
-    ```sudo docker-compose up -d -build```
+    ```
+    sudo docker-compose up -d -build
+    ```
 
-This will call the `Dockerfile` of each subfolder as well as other services such as postGIS and pg_tileserv. This will build the following containers and services:
+This will call the `Dockerfile` of each subfolder as well as other services such as postGIS and pg_tileserv. The following containers and services should be built:
 
 | container/service   | Port(s)                               | Purpose                                                                                       |
 |---------------------|---------------------------------------|-----------------------------------------------------------------------------------------------|
@@ -52,3 +58,4 @@ This will call the `Dockerfile` of each subfolder as well as other services such
 | postgis             | postgres://<user>:<password>@db:5432/manila_osm | PostGIS database server to store street-level interpolated AQI data.                          |
 | routing-backend     | localhost:9098                        | GraphHopper router server. See `/routing-backend/router_API.yaml` for OpenAPI specifications.  |
 
+Note that the routing-backend may take some time to initialize the GraphHopper routing network. Check its logs and wait for it to finish.
