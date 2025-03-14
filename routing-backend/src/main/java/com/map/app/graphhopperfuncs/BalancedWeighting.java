@@ -28,7 +28,7 @@ public class BalancedWeighting extends FastestWeighting {
     {
     	super(encoder, map, turnCostProvider);
     	timeFactor=checkBounds(TIME_FACTOR, map.getDouble(TIME_FACTOR, 1), 0, 10);
-    	pollutionFactor=checkBounds(POLLUTION_FACTOR, map.getDouble(POLLUTION_FACTOR, 0.07), 0, 10);
+    	pollutionFactor=checkBounds(POLLUTION_FACTOR, map.getDouble(POLLUTION_FACTOR, 1), 0, 10);
     	smokeEnc=encoder.getDecimalEncodedValue("smoke");
     	if (timeFactor < 1e-5 && pollutionFactor < 1e-5)
             throw new IllegalArgumentException("[" + NAME + "] one of distance_factor or time_factor has to be non-zero");
@@ -50,6 +50,7 @@ public class BalancedWeighting extends FastestWeighting {
     @Override
     public double calcEdgeWeight(EdgeIteratorState edgeState, boolean reverse) {
         double time = super.calcEdgeWeight(edgeState, reverse);
+//        System.out.println(pollutionFactor);
         return time * timeFactor + smokeEnc.getDecimal(false, edgeState.getFlags()) * pollutionFactor;
     }
     @Override
