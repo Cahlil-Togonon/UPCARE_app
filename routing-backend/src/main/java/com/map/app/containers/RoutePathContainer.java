@@ -81,6 +81,7 @@ public class RoutePathContainer {
 			indiv.setDistance(map.get("distance"));
 			indiv.setTime(map.get("time"));
 			indiv.setWeight(map.get("weight"));
+			indiv.setName(profile);
 
 		} finally {
 

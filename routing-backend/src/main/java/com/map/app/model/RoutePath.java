@@ -15,6 +15,7 @@ public class RoutePath {
 	private float distance;    // Total distance of the route (in meters)
 	private float weight;      // Concentration score or other weight metrics
 	private float time;        // Total time of the route (in seconds)
+	private String name;
 	private String points;  // Polyline encoded points
 	private ArrayList<Double> bbox;
 	private List<Map<String, Object>> instructions; // Detailed instructions
@@ -44,6 +45,14 @@ public class RoutePath {
 		this.time = time;
 	}
 
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
 	public String getPoints() {
 		return points;
 	}
@@ -65,6 +74,7 @@ public class RoutePath {
 
 	public RoutePath() {
 		points = "";
+		name = "";
 		bbox = new ArrayList<>();
 		distance = 0;
 		weight = 0;
@@ -108,6 +118,7 @@ public class RoutePath {
 		jsonMap.put("weight", this.weight);
 		jsonMap.put("time", this.time);
 
+		jsonMap.put("name", this.name);
 		jsonMap.put("points", this.points);
 
 		jsonMap.put("bbox", this.bbox);
