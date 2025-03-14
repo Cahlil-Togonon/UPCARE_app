@@ -48,7 +48,7 @@ COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types an
 -- Name: aqi_filter(integer, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.aqi_filter(z integer, x integer, y integer, threshold integer DEFAULT 50) RETURNS bytea
+CREATE FUNCTION public.aqi_filter(z integer, x integer, y integer, threshold integer DEFAULT 500) RETURNS bytea
     LANGUAGE plpgsql STABLE PARALLEL SAFE
     AS $$                                                                                              
 DECLARE                                                                                                    
@@ -78,6 +78,68 @@ BEGIN
     RETURN result;                                                                                         
 END;                                                                                                       
 $$;
+
+CREATE OR REPLACE FUNCTION public.aqi_timestamp(
+    z integer,
+    x integer,
+    y integer,
+    input_data_timestamp text DEFAULT ''
+)
+RETURNS bytea
+LANGUAGE plpgsql
+STABLE PARALLEL SAFE
+AS $function$
+DECLARE
+    result bytea;
+    closest_timestamp timestamp without time zone;
+BEGIN
+    IF input_data_timestamp = '' THEN
+        input_data_timestamp := NULL;
+    END IF;
+
+    IF input_data_timestamp IS NOT NULL THEN
+        BEGIN
+            closest_timestamp := TO_TIMESTAMP(input_data_timestamp, 'YYYY-MM-DD HH24:MI:SS');
+        EXCEPTION
+            WHEN others THEN
+                closest_timestamp := NULL;
+        END;
+    END IF;
+
+    IF closest_timestamp IS NULL THEN
+        SELECT MAX(data_timestamp)
+        INTO closest_timestamp
+        FROM street_aqi;
+    END IF;
+
+    IF closest_timestamp IS NOT NULL THEN
+        -- Find the closest data_timestamp to the input_data_timestamp
+        SELECT data_timestamp
+        INTO closest_timestamp
+        FROM street_aqi
+        WHERE data_timestamp IS NOT NULL
+        ORDER BY ABS(EXTRACT(EPOCH FROM (data_timestamp - closest_timestamp)))
+        LIMIT 1;
+    END IF;
+
+    WITH bounds AS (
+        SELECT ST_TileEnvelope(z, x, y) AS geom
+    ),
+    mvtgeom AS (
+        SELECT
+            ST_AsMVTGeom(ST_Transform(t.wkb_geometry, 3857), bounds.geom) AS geom,
+            t.aqi, t.osm_id, t.data_timestamp
+        FROM street_aqi t
+        JOIN bounds ON ST_Intersects(t.wkb_geometry, ST_Transform(bounds.geom, 4326))
+        WHERE t.data_timestamp = closest_timestamp
+    )
+    SELECT ST_AsMVT(mvtgeom.*, 'default')
+    INTO result
+    FROM mvtgeom;
+
+    RETURN result;
+END;
+$function$
 
 
 SET default_tablespace = '';
