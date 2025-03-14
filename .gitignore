@@ -1,2 +1,4 @@
 routing-backend\maps\philippines-latest.osm.pbf
 shared-data/*
+credentials.properties
+test.py
