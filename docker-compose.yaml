@@ -66,6 +66,18 @@ services:
     networks:
       - shared-network
 
+  varnish:
+    image: varnish:6.6
+    container_name: varnish
+    ports:
+      - "80:80"
+    volumes:
+      - ./default.vcl:/etc/varnish/default.vcl
+    depends_on:
+      - tileserv
+    networks:
+      - shared-network
+
   routing-backend:
     build:
       context: ./routing-backend
