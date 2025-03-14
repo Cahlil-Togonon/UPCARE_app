@@ -21,7 +21,8 @@ UPCARE_app
 ├── docker-compose.yaml
 ├── manila_osm.sql  # init files for database
 ├── osm_ids.sql
-└── osm_streets.sql
+├── osm_streets.sql
+└── default.vcl     # varnish file
 ```
 
 ## Running the Application
@@ -34,13 +35,14 @@ Follow the following steps:
     git clone --recurse-submodules https://github.com/Cahlil-Togonon/UPCARE_app.git
     ```
 
-2. Before building the application, download the Philippines OSM .pbf data file in the `./UPCARE-app/routing-backend/maps/` folder.
+2. Before building the application, download the Philippines OR the Metro Manila (smaller/faster) OSM .pbf data file in the `./UPCARE-app/routing-backend/maps/` folder.
 
     ```
     cd ./UPCARE-app/routing-backend/maps/
     ```
     ```
     wget https://download.geofabrik.de/asia/philippines-latest.osm.pbf
+    wget https://download.openstreetmap.fr/extracts/asia/philippines/metro_manila-latest.osm.pbf
     ```
 
 3. Go back to the `./UPCARE-app/` root directory and build the application using *docker-compose*:
@@ -61,5 +63,6 @@ The docker-compose will call the `Dockerfile` of each subfolder as well as other
 | tileserv            | localhost:7800                        | Tile server for PostGIS database to serve street-level AQI data.                              |
 | postgis             | postgres://`user`:`password`@db:5432/manila_osm | PostGIS database server to store street-level interpolated AQI data.                          |
 | routing-backend     | localhost:9098                        | GraphHopper router server. See `/routing-backend/router_API.yaml` for OpenAPI specifications.  |
+| varnish     | localhost:80                        | Varnish to speed-up the tile server  |
 
 Note that the routing-backend may take some time to initialize the GraphHopper routing network. Check its logs and wait for it to finish.
