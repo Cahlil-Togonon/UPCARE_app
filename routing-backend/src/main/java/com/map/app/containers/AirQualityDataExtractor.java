@@ -59,7 +59,8 @@ public class AirQualityDataExtractor {
 			writeLock.lock();
 
 			ap = new ArrayList<>();
-			readCSV();
+			String csvFilePath = readCSV();
+
 
 //			URL uri = new URL(url+boundingBox.minLat+","+boundingBox.minLon + ","
 //					+ boundingBox.maxLat + "," + boundingBox.maxLon +"&token=" + aqiApiKey );
@@ -117,7 +118,7 @@ public class AirQualityDataExtractor {
 			//assign air quality metric to edge in graphhopper
 			Graph gh = hopper.getGraphHopperStorage().getBaseGraph();
 //			LocationIndex locationIndex = hopper.getLocationIndex();
-			AirQualityBFS trav = new AirQualityBFS(hopper, gh, ap);
+			AirQualityBFS trav = new AirQualityBFS(hopper, gh, ap, csvFilePath);
 			
 				trav.start(gh.createEdgeExplorer(), 0);
 			} 
@@ -133,26 +134,58 @@ public class AirQualityDataExtractor {
 
 	}
 
-	private void readCSV() {
-		Properties prop=new Properties();
-		try(FileInputStream ip = new FileInputStream("config.properties")) {
+	// Reads the air quality data from the CSV file specified in config.properties
+	private String readCSV() {
+		Properties prop = new Properties();
+		try (FileInputStream ip = new FileInputStream("config.properties")) {
 			prop.load(ip);
-			String aqPath=prop.getProperty("air_quality_file");
-			BufferedReader br = new BufferedReader(new FileReader(aqPath));
+			String csvFilePath = prop.getProperty("air_quality_file");
+			BufferedReader br = new BufferedReader(new FileReader(csvFilePath));
 			String newLine;
 			String[] strings;
-			br.readLine();
+			br.readLine(); // Skip the header line
 			while ((newLine = br.readLine()) != null) {
 				strings = newLine.split(",");
-				if (strings.length !=0) {
-					if (!Objects.equals(strings[0], "") | !Objects.equals(strings[1], "") | !Objects.equals(strings[2], "") | !Objects.equals(strings[3], ""))
-						// reads the first column after locations data as aqi
-						ap.add(new AirQuality(Double.parseDouble(strings[1]), Double.parseDouble(strings[2]), Double.parseDouble(strings[3]), strings[0]));
+				if (strings.length != 0) {
+					// Make sure the AQI, lat, and lon are not empty
+					if (!Objects.equals(strings[0], "") && !Objects.equals(strings[1], "") &&
+							!Objects.equals(strings[2], "") && !Objects.equals(strings[3], "")) {
+						ap.add(new AirQuality(
+								Double.parseDouble(strings[1]),  // Latitude
+								Double.parseDouble(strings[2]),  // Longitude
+								Double.parseDouble(strings[3]),  // AQI value
+								strings[0]  // Sensor Name
+						));
+					}
 				}
 			}
 			br.close();
+			return csvFilePath;  // Return the file path
 		} catch (IOException e) {
-			throw new RuntimeException("Path not found");
+			throw new RuntimeException("Path not found or unable to read CSV file", e);
 		}
 	}
+
+//	private void readCSV() {
+//		Properties prop=new Properties();
+//		try(FileInputStream ip = new FileInputStream("config.properties")) {
+//			prop.load(ip);
+//			String aqPath=prop.getProperty("air_quality_file");
+//			BufferedReader br = new BufferedReader(new FileReader(aqPath));
+//			String newLine;
+//			String[] strings;
+//			br.readLine();
+//			while ((newLine = br.readLine()) != null) {
+//				strings = newLine.split(",");
+//				if (strings.length !=0) {
+//					if (!Objects.equals(strings[0], "") | !Objects.equals(strings[1], "") | !Objects.equals(strings[2], "") | !Objects.equals(strings[3], ""))
+//						// reads the first column after locations data as aqi
+//						ap.add(new AirQuality(Double.parseDouble(strings[1]), Double.parseDouble(strings[2]), Double.parseDouble(strings[3]), strings[0]));
+//				}
+//			}
+//			br.close();
+//		} catch (IOException e) {
+//			throw new RuntimeException("Path not found");
+//		}
+//	}
 }

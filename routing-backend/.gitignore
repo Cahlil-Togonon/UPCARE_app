@@ -2,7 +2,7 @@
 .project
 .settings
 target/*
-!target/gh_configured_router-0.0.1-SNAPSHOT.jar
+# !target/gh_configured_router-0.0.1-SNAPSHOT.jar
 *output/
 results.txt
 *.DS_Store

@@ -48,36 +48,41 @@ COMMENT ON EXTENSION postgis IS 'PostGIS geometry and geography spatial types an
 -- Name: aqi_filter(integer, integer, integer, integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.aqi_filter(z integer, x integer, y integer, threshold integer DEFAULT 500) RETURNS bytea
-    LANGUAGE plpgsql STABLE PARALLEL SAFE
-    AS $$                                                                                              
-DECLARE                                                                                                    
+CREATE OR REPLACE FUNCTION public.aqi_filter(z integer, x integer, y integer, threshold integer DEFAULT 500)
+RETURNS bytea
+LANGUAGE plpgsql
+STABLE PARALLEL SAFE
+AS $function$
+DECLARE
     result bytea;
-    latest_timestamp timestamp without time zone;                                                                                    
+    latest_timestamp timestamp without time zone;
 BEGIN
-    SELECT MAX(data_timestamp)
+    SELECT data_timestamp
     INTO latest_timestamp
-    FROM street_aqi;
-                                                                                            
-    WITH                                                                                                   
-    bounds AS (                                                                                            
-        SELECT ST_TileEnvelope(z, x, y) AS geom                                                              
-    ),                                                                                                     
-    mvtgeom AS (                                                                                           
-    SELECT ST_AsMVTGeom(ST_Transform(t.wkb_geometry, 3857), bounds.geom) AS geom,                        
-        t.aqi, t.osm_id, t.data_timestamp                                                                  
-    FROM street_aqi t, bounds                                                                            
-    WHERE ST_Intersects(t.wkb_geometry, ST_Transform(bounds.geom, 4326))                                 
-    AND t.aqi < threshold  
-    AND t.data_timestamp = latest_timestamp                                                                          
-    )                                                                                                      
-    SELECT ST_AsMVT(mvtgeom.*, 'default')                                                                  
-    INTO result                                                                                            
-    FROM mvtgeom;                                                                                          
-                                                                                                        
-    RETURN result;                                                                                         
-END;                                                                                                       
-$$;
+    FROM street_aqi_historical
+    ORDER BY data_timestamp DESC
+    LIMIT 1;
+
+    WITH
+    bounds AS (
+        SELECT ST_TileEnvelope(z, x, y) AS geom
+    ),
+    mvtgeom AS (
+    SELECT ST_AsMVTGeom(ST_Transform(t.wkb_geometry, 3857), bounds.geom) AS geom,
+        t.aqi, t.osm_id, t.data_timestamp
+    FROM street_aqi_historical t, bounds
+    WHERE ST_Intersects(t.wkb_geometry, ST_Transform(bounds.geom, 4326))
+    AND t.aqi < threshold
+    AND t.data_timestamp = latest_timestamp
+    )
+    SELECT ST_AsMVT(mvtgeom.*, 'default')
+    INTO result
+    FROM mvtgeom;
+
+    RETURN result;
+END;
+$function$;
+
 
 CREATE OR REPLACE FUNCTION public.aqi_timestamp(
     z integer,
@@ -109,14 +114,14 @@ BEGIN
     IF closest_timestamp IS NULL THEN
         SELECT MAX(data_timestamp)
         INTO closest_timestamp
-        FROM street_aqi;
+        FROM street_aqi_historical;
     END IF;
 
     IF closest_timestamp IS NOT NULL THEN
         -- Find the closest data_timestamp to the input_data_timestamp
         SELECT data_timestamp
         INTO closest_timestamp
-        FROM street_aqi
+        FROM street_aqi_historical
         WHERE data_timestamp IS NOT NULL
         ORDER BY ABS(EXTRACT(EPOCH FROM (data_timestamp - closest_timestamp)))
         LIMIT 1;
@@ -129,7 +134,7 @@ BEGIN
         SELECT
             ST_AsMVTGeom(ST_Transform(t.wkb_geometry, 3857), bounds.geom) AS geom,
             t.aqi, t.osm_id, t.data_timestamp
-        FROM street_aqi t
+        FROM street_aqi_historical t
         JOIN bounds ON ST_Intersects(t.wkb_geometry, ST_Transform(bounds.geom, 4326))
         WHERE t.data_timestamp = closest_timestamp
     )
@@ -139,7 +144,7 @@ BEGIN
 
     RETURN result;
 END;
-$function$
+$function$;
 
 
 SET default_tablespace = '';
@@ -175,54 +180,12 @@ CREATE TABLE public.street_aqi (
     data_timestamp timestamp without time zone
 );
 
-
---
--- Name: street_aqi_backup; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.street_aqi_backup (
-    osm_id bigint,
+CREATE TABLE public.street_aqi_historical (
+    osm_id bigint NOT NULL,
     wkb_geometry public.geometry(MultiLineString,4326),
     aqi double precision,
-    data_timestamp timestamp without time zone,
-    id integer,
-    source integer,
-    target integer
+    data_timestamp timestamp without time zone
 );
-
-
---
--- Name: street_aqi_backup_vertices_pgr; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.street_aqi_backup_vertices_pgr (
-    id bigint NOT NULL,
-    cnt integer,
-    chk integer,
-    ein integer,
-    eout integer,
-    the_geom public.geometry(Point,4326)
-);
-
-
---
--- Name: street_aqi_backup_vertices_pgr_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.street_aqi_backup_vertices_pgr_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: street_aqi_backup_vertices_pgr_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.street_aqi_backup_vertices_pgr_id_seq OWNED BY public.street_aqi_backup_vertices_pgr.id;
-
 
 --
 -- Name: street_aqi_linestring; Type: TABLE; Schema: public; Owner: -
@@ -261,10 +224,10 @@ ALTER SEQUENCE public.street_aqi_linestring_id_seq OWNED BY public.street_aqi_li
 
 
 --
--- Name: test2; Type: TABLE; Schema: public; Owner: -
+-- Name: osm_id_geometry; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.test2 (
+CREATE TABLE public.osm_id_geometry (
     ogc_fid integer NOT NULL,
     wkb_geometry public.geometry(MultiLineString,4326),
     full_id character varying,
@@ -278,10 +241,10 @@ CREATE TABLE public.test2 (
 
 
 --
--- Name: test2_ogc_fid_seq; Type: SEQUENCE; Schema: public; Owner: -
+-- Name: osm_id_geometry_ogc_fid_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
-CREATE SEQUENCE public.test2_ogc_fid_seq
+CREATE SEQUENCE public.osm_id_geometry_ogc_fid_seq
     AS integer
     START WITH 1
     INCREMENT BY 1
@@ -291,10 +254,10 @@ CREATE SEQUENCE public.test2_ogc_fid_seq
 
 
 --
--- Name: test2_ogc_fid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+-- Name: osm_id_geometry_ogc_fid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
-ALTER SEQUENCE public.test2_ogc_fid_seq OWNED BY public.test2.ogc_fid;
+ALTER SEQUENCE public.osm_id_geometry_ogc_fid_seq OWNED BY public.osm_id_geometry.ogc_fid;
 
 
 --
@@ -345,14 +308,6 @@ CREATE SEQUENCE public.test_a_id_seq
 
 ALTER SEQUENCE public.test_a_id_seq OWNED BY public.test_a.id;
 
-
---
--- Name: street_aqi_backup_vertices_pgr id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.street_aqi_backup_vertices_pgr ALTER COLUMN id SET DEFAULT nextval('public.street_aqi_backup_vertices_pgr_id_seq'::regclass);
-
-
 --
 -- Name: street_aqi_linestring id; Type: DEFAULT; Schema: public; Owner: -
 --
@@ -361,10 +316,10 @@ ALTER TABLE ONLY public.street_aqi_linestring ALTER COLUMN id SET DEFAULT nextva
 
 
 --
--- Name: test2 ogc_fid; Type: DEFAULT; Schema: public; Owner: -
+-- Name: osm_id_geometry ogc_fid; Type: DEFAULT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.test2 ALTER COLUMN ogc_fid SET DEFAULT nextval('public.test2_ogc_fid_seq'::regclass);
+ALTER TABLE ONLY public.osm_id_geometry ALTER COLUMN ogc_fid SET DEFAULT nextval('public.osm_id_geometry_ogc_fid_seq'::regclass);
 
 
 --
@@ -394,10 +349,6 @@ ALTER TABLE ONLY public.osm_ids
 -- Name: street_aqi_backup_vertices_pgr street_aqi_backup_vertices_pgr_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.street_aqi_backup_vertices_pgr
-    ADD CONSTRAINT street_aqi_backup_vertices_pgr_pkey PRIMARY KEY (id);
-
-
 --
 -- Name: street_aqi_linestring street_aqi_linestring_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
@@ -407,11 +358,11 @@ ALTER TABLE ONLY public.street_aqi_linestring
 
 
 --
--- Name: test2 test2_pk; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: osm_id_geometry osm_id_geometry_pk; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.test2
-    ADD CONSTRAINT test2_pk PRIMARY KEY (ogc_fid);
+ALTER TABLE ONLY public.osm_id_geometry
+    ADD CONSTRAINT osm_id_geometry_pk PRIMARY KEY (ogc_fid);
 
 
 --
@@ -421,54 +372,11 @@ ALTER TABLE ONLY public.test2
 ALTER TABLE ONLY public.test_a
     ADD CONSTRAINT test_a_pkey PRIMARY KEY (id);
 
-
 --
--- Name: street_aqi_backup_id_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX street_aqi_backup_id_idx ON public.street_aqi_backup USING btree (id);
-
-
---
--- Name: street_aqi_backup_osm_id_idx; Type: INDEX; Schema: public; Owner: -
+-- Name: osm_id_geometry_wkb_geometry_geom_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX street_aqi_backup_osm_id_idx ON public.street_aqi_backup USING btree (osm_id);
-
-
---
--- Name: street_aqi_backup_source_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX street_aqi_backup_source_idx ON public.street_aqi_backup USING btree (source);
-
-
---
--- Name: street_aqi_backup_target_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX street_aqi_backup_target_idx ON public.street_aqi_backup USING btree (target);
-
-
---
--- Name: street_aqi_backup_vertices_pgr_the_geom_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX street_aqi_backup_vertices_pgr_the_geom_idx ON public.street_aqi_backup_vertices_pgr USING gist (the_geom);
-
-
---
--- Name: street_aqi_backup_wkb_geometry_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX street_aqi_backup_wkb_geometry_idx ON public.street_aqi_backup USING gist (wkb_geometry);
-
-
---
--- Name: test2_wkb_geometry_geom_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX test2_wkb_geometry_geom_idx ON public.test2 USING gist (wkb_geometry);
+CREATE INDEX osm_id_geometry_wkb_geometry_geom_idx ON public.osm_id_geometry USING gist (wkb_geometry);
 
 
 --
@@ -527,10 +435,10 @@ GRANT SELECT ON TABLE public.street_aqi TO tileserv;
 
 
 --
--- Name: TABLE test2; Type: ACL; Schema: public; Owner: -
+-- Name: TABLE osm_id_geometry; Type: ACL; Schema: public; Owner: -
 --
 
-GRANT SELECT ON TABLE public.test2 TO grafanareader;
+GRANT SELECT ON TABLE public.osm_id_geometry TO grafanareader;
 
 
 --

@@ -12,6 +12,8 @@ services:
           target: /coe199-capstone
     volumes:
       - ./shared-data/express-leaflet/public:/express-leaflet/public
+      - ./shared-data/routing-backend/maps:/routing-backend/maps
+      - ./shared-data/unique_nodes.csv:/shared-data/unique_nodes.csv
     networks:
       - shared-network
     environment:
@@ -83,10 +85,17 @@ services:
       context: ./routing-backend
       dockerfile: Dockerfile
     container_name: routing-backend
+    volumes:
+      - ./shared-data/routing-backend/maps:/routing-backend/maps
+    environment:
+     - DATABASE_URL=jdbc:postgresql://postgis:5432/manila_osm?user=admin&password=++adminupcare2025!!
     ports:
       - "9098:9098"
     networks:
       - shared-network
+    depends_on:
+      - python-backend
+      - db
 
 volumes:
   pgdata:

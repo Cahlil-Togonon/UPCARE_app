@@ -34,7 +34,7 @@ import com.map.app.model.TrafficData;
 public class TrafficAndRoutingService {
 
 	private String apiKey = System.getenv("here_api_key");
-	
+
 	private final AirQualityDataExtractor ai;
 	private final TrafficDataExtractor dt;
 	private final RoutePathContainer rp;
@@ -43,13 +43,14 @@ public class TrafficAndRoutingService {
 	public enum SpeedChoice{avg_actual_from_hereMaps, free_flow_from_hereMaps, lower_of_two}
 	public static SpeedChoice speedChoice = SpeedChoice.avg_actual_from_hereMaps;
 	public static float functional_road_class_here_maps = 4.0f;
+	public GraphHopper gh=new MyGraphHopper();
 
 	public TrafficAndRoutingService() {
 		ReadWriteLock lock=new ReentrantReadWriteLock();
     	GraphHopperConfig config=new GraphHopperConfig();
     	config.putObject("index.max_region_search", 8); // increasing the search radius (a point in Rajaji forest is not able to find any road)
-    	GraphHopper gh=new MyGraphHopper();
-    	UnsignedDecimalEncodedValue smokeEnc=new UnsignedDecimalEncodedValue("smoke",31,0.1,0,true); 
+
+    	UnsignedDecimalEncodedValue smokeEnc=new UnsignedDecimalEncodedValue("smoke",31,0.1,0,true);
 		gh.getEncodingManagerBuilder().add(smokeEnc);
     	//gh.c
     	Properties prop=new Properties();
@@ -81,7 +82,7 @@ public class TrafficAndRoutingService {
 			config.putObject("graph.flag_encoders",prop.getProperty("graph.flag_encoders"));
 			config.putObject("graph.dataaccess", prop.getProperty("graph.dataaccess"));
 			config.putObject("profiles_ch", prop.getProperty("profiles_ch"));
-			
+
 			if( apiKey==null) apiKey =prop.getProperty("here_api_key"); // the api key must be in either system env or config.properties
 		} catch (IOException e) {
 			throw new RuntimeException("Config properties are not found. Aborting ...");
@@ -89,45 +90,48 @@ public class TrafficAndRoutingService {
 
     	gh.init(config).setGraphHopperLocation("graphLocation");
     	//System.out.println(gh.getEncodingManager().getDecimalEncodedValue("smoke"));
-    	gh.clean();   	
+    	gh.clean();
     	gh.importOrLoad();
-    	
+
     	//gh.set
-    	this.boundingBox = gh.getGraphHopperStorage().getBaseGraph().getBounds();
+		// this.boundingBox = gh.getGraphHopperStorage().getBaseGraph().getBounds();
+		this.boundingBox = new BBox(120.906395432,121.135036414,14.351729568,14.785291728); // to make this dynamic
     	//System.out.println(boundingBox);
-    	//System.out.println(this.boundingBox);
+    	System.out.println(this.boundingBox);
     	dt=new TrafficDataExtractor(gh,lock.writeLock());
     	rp=new RoutePathContainer(gh, lock.readLock());
     	ai=new AirQualityDataExtractor(gh,lock.writeLock());
     }
-	
+
 	public static String getModeBasedPathChoice(PathChoice pathChoice, TransportMode transportMode) {
 		return pathChoice.toString().concat("_").concat(transportMode.toString());
 	}
-	
+
 	public ArrayList<Float> getBoundingBox() {
 		ArrayList<Float> box=new ArrayList<>();
 		box.add((float)boundingBox.minLat);
 		box.add((float)boundingBox.minLon);
 		box.add((float) boundingBox.maxLat);
 		box.add((float)boundingBox.maxLon);
-		
+
 		return box;
 	}
     public TrafficData getAll()
 	{
 		return dt.getRoads();
 	}
-	
+
 	public void start()
 	{
 		if (apiKey.equals("<HERE_API_KEY>")){
 			throw new RuntimeException("API Key for Here Maps is not found. Aborting...");
 		}
+		gh.clean();
+//		gh.importOrLoad();
 		dt.fetchData(apiKey, this.boundingBox);
-		
+
 		ai.readJSON(this.boundingBox);
-		
+
 	}
 
 	public ArrayList<RoutePath> getPath(UrlContainer p)

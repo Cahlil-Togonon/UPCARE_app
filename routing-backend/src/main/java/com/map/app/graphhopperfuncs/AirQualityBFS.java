@@ -16,23 +16,36 @@ import com.graphhopper.util.EdgeIterator;
 import com.graphhopper.util.EdgeIteratorState;
 import com.graphhopper.util.SimpleIntDeque;
 import com.graphhopper.util.XFirstSearch;
+import com.map.app.containers.KrigingInterpolator;
 import com.map.app.model.AirQuality;
 import com.map.app.service.TransportMode;
+
+import com.map.app.service.AQIService;
+import com.map.app.service.DatabaseConnection;
+
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * @author Siftee
  */
+
 public class AirQualityBFS extends XFirstSearch {
 	// does a BFS traversal and assigns edge with air quality value as average of
 	// aqi value of base and adjacent node.
 	private final Graph gh;
 	private final GraphHopper hopper;
 	private final ArrayList<AirQuality> ap;
+	private final KrigingInterpolator kriging;
 
-	public AirQualityBFS(GraphHopper hopper, Graph gh, ArrayList<AirQuality> ap) {
+	public AirQualityBFS(GraphHopper hopper, Graph gh, ArrayList<AirQuality> ap, String csvFilePath) {
 		this.gh = gh;
 		this.hopper = hopper;
 		this.ap = ap;
+		this.kriging = new KrigingInterpolator(csvFilePath);
 	}
 
 	@Override
@@ -40,55 +53,107 @@ public class AirQualityBFS extends XFirstSearch {
 		return new GHBitSetImpl();
 	}
 	//public double get
+
 	@Override
 	public void start(EdgeExplorer explorer, int temp) {
-		//System.out.println(hopper.)
-		// System.out.println(ap);
+		Set<String> uniqueNodes = new HashSet<>();
 
-		//System.out.println(.getAllEdges());
-		
+		AQIService.loadAllAQIData();
+
 		for (TransportMode encoder : TransportMode.values()) {
 			FlagEncoder Encoder = hopper.getEncodingManager().getEncoder(encoder.toString());
 			DecimalEncodedValue smokeEnc = Encoder.getDecimalEncodedValue("smoke");
-			// SimpleIntDeque fifo = new SimpleIntDeque();
-			// GHBitSet visited = createBitSet();
-			// System.out.println("KYA"+gh.getNodes());
-			int count = 0;
-			Set<Integer> edge_uni=new HashSet<>();
+			Set<Integer> edge_uni = new HashSet<>();
+
 			for (int startNode = 0; startNode < gh.getNodes(); startNode++) {
 				EdgeIterator edgeIterator = explorer.setBaseNode(startNode);
 				while (edgeIterator.next()) {
 					EdgeIteratorState edge = gh.getEdgeIteratorState(edgeIterator.getEdge(), Integer.MIN_VALUE);
-					if(edge_uni.contains(edgeIterator.getEdge()))
-					{
-						continue;
-					}
+					if (edge_uni.contains(edgeIterator.getEdge())) continue;
+
 					int connectedId = edgeIterator.getAdjNode();
 					double base_lat = gh.getNodeAccess().getLat(startNode);
 					double base_lon = gh.getNodeAccess().getLon(startNode);
-					double airQualityBase = IDW(base_lat, base_lon);
+					Double airQualityBase = AQIService.getAQIFromCache(base_lat, base_lon);
+
 					double adjacent_lat = gh.getNodeAccess().getLat(connectedId);
 					double adjacent_lon = gh.getNodeAccess().getLon(connectedId);
-					double airQualityAdj = IDW(adjacent_lat, adjacent_lon);
-					
+					Double airQualityAdj = AQIService.getAQIFromCache(adjacent_lat, adjacent_lon);
+
+					uniqueNodes.add(String.format("%.7f,%.7f", base_lat, base_lon));
+					uniqueNodes.add(String.format("%.7f,%.7f", adjacent_lat, adjacent_lon));
+
 					if (Double.isNaN(airQualityAdj) || Double.isNaN(airQualityBase)) {
 						edge.set(smokeEnc, 0.);
-						//System.out.println(smokeEnc);
-						// edge.setFl
-						count++;
 					} else {
-						edge.set(smokeEnc, Math.max(convToConc((airQualityBase + airQualityAdj) / 2),0));
-						//System.out.println(edge.get(smokeEnc));
-						count++;
+						edge.set(smokeEnc, Math.max((airQualityBase + airQualityAdj) / 2, 0));
 					}
 					edge_uni.add(edge.getEdge());
 				}
 			}
-			// System.out.println(visited.getCardinality());
-
-			//System.out.println("Count is " + count);
 		}
+
+		try (PrintWriter writer = new PrintWriter(new FileWriter("../shared-data/unique_nodes.csv"))) {
+			writer.println("lat,lon");
+			for (String node : uniqueNodes) {
+				writer.println(node);
+			}
+			System.out.println("Unique node coordinates saved to unique_nodes.csv");
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
 	}
+
+//	@Override
+//	public void start(EdgeExplorer explorer, int temp) {
+//		//System.out.println(hopper.)
+//		// System.out.println(ap);
+//
+//		//System.out.println(.getAllEdges());
+//
+//		for (TransportMode encoder : TransportMode.values()) {
+//			FlagEncoder Encoder = hopper.getEncodingManager().getEncoder(encoder.toString());
+//			DecimalEncodedValue smokeEnc = Encoder.getDecimalEncodedValue("smoke");
+//			// SimpleIntDeque fifo = new SimpleIntDeque();
+//			// GHBitSet visited = createBitSet();
+//			// System.out.println("KYA"+gh.getNodes());
+//			int count = 0;
+//			Set<Integer> edge_uni=new HashSet<>();
+//			for (int startNode = 0; startNode < gh.getNodes(); startNode++) {
+//				EdgeIterator edgeIterator = explorer.setBaseNode(startNode);
+//				while (edgeIterator.next()) {
+//					EdgeIteratorState edge = gh.getEdgeIteratorState(edgeIterator.getEdge(), Integer.MIN_VALUE);
+//					if(edge_uni.contains(edgeIterator.getEdge()))
+//					{
+//						continue;
+//					}
+//					int connectedId = edgeIterator.getAdjNode();
+//					double base_lat = gh.getNodeAccess().getLat(startNode);
+//					double base_lon = gh.getNodeAccess().getLon(startNode);
+//					double airQualityBase = IDW(base_lat, base_lon);
+//					double adjacent_lat = gh.getNodeAccess().getLat(connectedId);
+//					double adjacent_lon = gh.getNodeAccess().getLon(connectedId);
+//					double airQualityAdj = IDW(adjacent_lat, adjacent_lon);
+//
+//					if (Double.isNaN(airQualityAdj) || Double.isNaN(airQualityBase)) {
+//						edge.set(smokeEnc, 0.);
+//						//System.out.println(smokeEnc);
+//						// edge.setFl
+//						count++;
+//					} else {
+//						edge.set(smokeEnc, Math.max(convToConc((airQualityBase + airQualityAdj) / 2),0));
+//						//System.out.println(edge.get(smokeEnc));
+//						count++;
+//					}
+//					edge_uni.add(edge.getEdge());
+//				}
+//			}
+//			// System.out.println(visited.getCardinality());
+//
+//			//System.out.println("Count is " + count);
+//		}
+//	}
 
 	/*private int BFS(EdgeExplorer explorer, GHBitSet visited, SimpleIntDeque fifo, DecimalEncodedValue smokeEnc) {
 		int current;

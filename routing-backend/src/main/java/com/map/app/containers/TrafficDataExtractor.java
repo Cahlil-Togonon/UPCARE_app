@@ -28,6 +28,15 @@ import com.graphhopper.storage.index.Snap;
 import com.graphhopper.util.EdgeIteratorState;
 import com.map.app.model.TrafficData;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
+
 /**
  * @author  Siftee, Amit
  */
@@ -42,13 +51,19 @@ public class TrafficDataExtractor {
 	}
 
 	public void fetchData(String apiKey, BBox boundingBox) {
-		final String URL = "https://traffic.ls.hereapi.com/traffic/6.2/flow.xml?apiKey="
-				+apiKey +"&bbox="
-				+boundingBox.minLat+","+boundingBox.minLon + ";"
-				+ boundingBox.maxLat + "," + boundingBox.maxLon +
-				"&responseattributes=sh,fc&units=metric";
-		//System.out.println(URL);
-		parse_XML(URL);
+//		final String URL = "https://traffic.ls.hereapi.com/traffic/6.2/flow.xml?apiKey="
+//				+apiKey +"&bbox="
+//				+boundingBox.minLat+","+boundingBox.minLon + ";"
+//				+ boundingBox.maxLat + "," + boundingBox.maxLon +
+//				"&responseattributes=sh,fc&units=metric";
+//		parse_XML(URL);
+		// https://www.here.com/docs/bundle/traffic-api-developer-guide-v7/page/topics/concepts/flow.html#flow
+		final String URL = "https://data.traffic.hereapi.com/v7/flow?"
+				+ "apiKey=" + apiKey
+				+ "&in=bbox:" + boundingBox.minLon + "," + boundingBox.minLat + "," + boundingBox.maxLon + "," + boundingBox.maxLat
+				+ "&locationReferencing=shape&minJamFactor=0&maxJamFactor=10&functionalClasses=1&functionalClasses=2&functionalClasses=3&functionalClasses=4&functionalClasses=5&advancedFeatures=deepCoverage";
+		System.out.println(URL);
+		parse_JSON(URL);
 	}
 
 	public void feed(TrafficData tempdt) {
@@ -234,6 +249,95 @@ public class TrafficDataExtractor {
 		}
 
 	}
+
+	public void parse_JSON(String urlString) {
+		try {
+			String jsonResponse = getJsonFromUrl(urlString);
+			JSONObject jsonObject = new JSONObject(jsonResponse);
+			JSONArray results = jsonObject.getJSONArray("results");
+
+			TrafficData tempdt = new TrafficData();
+			tempdt.setSpeed(new ArrayList<>());
+			tempdt.setLat(new ArrayList<>());
+			tempdt.setLons(new ArrayList<>());
+
+			for (int i = 0; i < results.length(); i++) {
+				JSONObject road = results.getJSONObject(i);
+				JSONObject location = road.getJSONObject("location");
+				JSONObject currentFlow = road.getJSONObject("currentFlow");
+
+				JSONArray links = location.getJSONObject("shape").getJSONArray("links");
+				ArrayList<Float> las = new ArrayList<>();
+				ArrayList<Float> longs = new ArrayList<>();
+
+				for (int j = 0; j < links.length(); j++) {
+					JSONArray points = links.getJSONObject(j).getJSONArray("points");
+					for (int k = 0; k < points.length(); k++) {
+						JSONObject point = points.getJSONObject(k);
+						las.add((float) point.getDouble("lat"));
+						longs.add((float) point.getDouble("lng"));
+					}
+				}
+
+				// Use subSegments if available
+				if (currentFlow.has("subSegments")) {
+					JSONArray subSegments = currentFlow.getJSONArray("subSegments");
+
+					for (int s = 0; s < subSegments.length(); s++) {
+						JSONObject sub = subSegments.getJSONObject(s);
+
+						if (sub.has("speedUncapped") && sub.has("freeFlow")) {
+							ArrayList<Float> speedInfo = new ArrayList<>();
+							speedInfo.add((float) sub.getDouble("speedUncapped"));
+							speedInfo.add((float) sub.getDouble("freeFlow"));
+
+							tempdt.getLat().add(new ArrayList<>(las));
+							tempdt.getLons().add(new ArrayList<>(longs));
+							tempdt.getSpeed().add(speedInfo);
+						}
+					}
+				} else {
+					// Fallback to original logic
+					if (currentFlow.has("confidence") && currentFlow.getDouble("confidence") >= 0.7
+							&& currentFlow.has("speedUncapped") && currentFlow.has("freeFlow")) {
+						ArrayList<Float> speedInfo = new ArrayList<>();
+						speedInfo.add((float) currentFlow.getDouble("speedUncapped"));
+						speedInfo.add((float) currentFlow.getDouble("freeFlow"));
+
+						tempdt.getLat().add(las);
+						tempdt.getLons().add(longs);
+						tempdt.getSpeed().add(speedInfo);
+					}
+				}
+			}
+
+			feed(tempdt);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			System.out.println("Traffic JSON parsing done...");
+		}
+	}
+
+
+	// Helper function to fetch JSON from URL
+	private String getJsonFromUrl(String urlString) throws Exception {
+		URL url = new URL(urlString);
+		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+		conn.setRequestMethod("GET");
+
+		BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+		String inputLine;
+		StringBuilder response = new StringBuilder();
+
+		while ((inputLine = in.readLine()) != null) {
+			response.append(inputLine);
+		}
+		in.close();
+
+		return response.toString();
+	}
+
 	public TrafficData getRoads() {
 		return dt;
 	}
